@@ -431,28 +431,59 @@ class DietCalculator_Admin {
      * Handle PDF download
      */
     public function download_pdf() {
+        // Clear any output buffers
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
         if (!isset($_GET['plan_id'])) {
             wp_die(__('Plan ID is required.', 'diet-calculator'));
         }
 
         $plan_id = intval($_GET['plan_id']);
+        
+        // Debug: Log the plan_id being requested
+        error_log('Diet Calculator: Requesting PDF for plan ID: ' . $plan_id);
+        
         $database = new DietCalculator_Database();
         $plan_data = $database->get_meal_plan($plan_id);
 
         if (!$plan_data) {
+            error_log('Diet Calculator: Plan not found for ID: ' . $plan_id);
             wp_die(__('Plan not found.', 'diet-calculator'));
         }
 
+        // Debug: Log plan data structure
+        error_log('Diet Calculator: Plan data keys: ' . implode(', ', array_keys($plan_data)));
+
         try {
+            // Start output buffering to catch any unexpected output
+            ob_start();
+            
             // Generate PDF
             $pdf_generator = new DietCalculator_PDF_Generator();
-            $pdf_generator->generate_pdf($plan_data, $plan_data['meal_plan']);
+            $result = $pdf_generator->generate_pdf($plan_data, $plan_data['meal_plan']);
+            
+            // Clean any captured output
+            $captured_output = ob_get_clean();
+            if (!empty($captured_output)) {
+                error_log('Diet Calculator: Unexpected output captured: ' . $captured_output);
+            }
+            
         } catch (Exception $e) {
-            // Log error and show user-friendly message
+            // Clean any output buffer
+            ob_end_clean();
+            
+            // Log detailed error
             error_log('Diet Calculator PDF Error: ' . $e->getMessage());
-            wp_die(__('Error generating PDF. Please try again or contact support.', 'diet-calculator'));
+            error_log('Diet Calculator PDF Error Stack: ' . $e->getTraceAsString());
+            
+            // Return error response
+            header('Content-Type: text/html');
+            wp_die(__('Error generating PDF: ', 'diet-calculator') . $e->getMessage());
         }
         
-        exit;
+        // Ensure script ends here
+        wp_die();
     }
 }

@@ -84,8 +84,9 @@ class DietCalculator_PDF_Generator {
         // Generate filename
         $filename = 'diet-plan-' . date('Y-m-d') . '.pdf';
 
-        // Output PDF
-        return $pdf->Output($filename, 'D');
+        // Output PDF and exit
+        $pdf->Output($filename, 'D');
+        exit;
     }
 
     /**
@@ -293,16 +294,13 @@ class DietCalculator_PDF_Generator {
             $meal_plan = json_decode($meal_plan, true);
         }
 
-        // Set headers for PDF download
-        header('Content-Type: application/pdf');
-        header('Content-Disposition: attachment; filename="diet-plan-' . date('Y-m-d') . '.pdf"');
-        header('Cache-Control: private, max-age=0, must-revalidate');
-        header('Pragma: public');
+        // Log which fallback method we're using
+        error_log('Diet Calculator: Using fallback PDF generation methods');
 
         // Generate HTML content
         $html = $this->generate_pdf_content($data, $meal_plan);
         
-        // Use wkhtmltopdf if available, otherwise use FPDF
+        // Use wkhtmltopdf if available, otherwise use simple PDF
         if ($this->use_wkhtmltopdf($html)) {
             return;
         }
@@ -352,6 +350,15 @@ class DietCalculator_PDF_Generator {
         exec($command, $output, $return_var);
 
         if ($return_var === 0 && file_exists($temp_pdf)) {
+            // Set proper headers for PDF download
+            if (!headers_sent()) {
+                header('Content-Type: application/pdf');
+                header('Content-Disposition: attachment; filename="diet-plan-' . date('Y-m-d') . '.pdf"');
+                header('Content-Length: ' . filesize($temp_pdf));
+                header('Cache-Control: private, max-age=0, must-revalidate');
+                header('Pragma: public');
+            }
+            
             // Output PDF
             readfile($temp_pdf);
             
@@ -359,7 +366,7 @@ class DietCalculator_PDF_Generator {
             unlink($temp_html);
             unlink($temp_pdf);
             
-            return true;
+            exit; // Important: exit after successful PDF generation
         }
 
         // Clean up on failure
@@ -387,10 +394,11 @@ class DietCalculator_PDF_Generator {
         $pdf->writeHTML($html);
         
         // Output PDF
-        $filename = 'diet-plan-' . date('Y-m-d') . '.pdf';
+        $filename = 'diet-plan-' . date('Y-m-d') . '.txt';
         $pdf->Output($filename, 'D');
         
-        return;
+        // Exit is handled in SimplePDF class
+        exit;
     }
     
 
