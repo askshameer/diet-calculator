@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  calculations  DietCalculation[]
+  progress      Progress[]
+  
+  @@map("users")
+}
+
+model DietCalculation {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Basic Info
+  height                Float
+  weight                Float
+  age                   Int
+  sex                   String
+  
+  // Goals
+  goal                  String   // lose_weight, build_muscle, athletic_performance, body_recomposition, improve_health
+  timeline              Int      // weeks
+  goalWeight            Float?
+  
+  // Activity
+  exerciseIntensity     String   // low, moderate, high, very_high
+  dailyActivityLevel    String   // sedentary, lightly_active, moderately_active, very_active, extremely_active
+  
+  // Preferences
+  dietaryPreferences    String[] // vegetarian, vegan, keto, paleo, mediterranean, etc.
+  foodAllergies         String[] // nuts, dairy, gluten, shellfish, etc.
+  foodIntolerances      String[] // lactose, fructose, etc.
+  
+  // Macros
+  macronutrientRatio    String   // balanced, high_protein, low_carb, high_carb
+  mealsPerDay           Int
+  
+  // Calculated Results
+  bmr                   Float?
+  tdee                  Float?
+  dailyCalories         Float?
+  proteinGrams          Float?
+  carbGrams             Float?
+  fatGrams              Float?
+  
+  // AI Generated Content
+  mealPlan              Json?
+  recipeIdeas           Json?
+  shoppingList          Json?
+  supplements           Json?
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@map("diet_calculations")
+}
+
+model Progress {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  weight            Float
+  bodyFatPercentage Float?
+  muscleMass        Float?
+  waterIntake       Float?
+  notes             String?
+  
+  createdAt         DateTime @default(now())
+  
+  @@map("progress")
+}
+
+model Recipe {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  ingredients     Json
+  instructions    Json
+  nutritionPer100g Json
+  dietaryTags     String[] // vegetarian, vegan, gluten_free, etc.
+  allergens       String[]
+  prepTime        Int      // minutes
+  cookTime        Int      // minutes
+  difficulty      String   // easy, medium, hard
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("recipes")
+}
+
+model Food {
+  id              String @id @default(cuid())
+  name            String
+  brand           String?
+  barcode         String?
+  
+  // Nutrition per 100g
+  calories        Float
+  protein         Float
+  carbs           Float
+  fat             Float
+  fiber           Float?
+  sugar           Float?
+  sodium          Float?
+  
+  allergens       String[]
+  dietaryTags     String[]
+  
+  @@map("foods")
+}
