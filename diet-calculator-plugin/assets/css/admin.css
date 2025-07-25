@@ -1,0 +1,522 @@
+/**
+ * Admin CSS for Diet Calculator Plugin
+ */
+
+/* Dashboard Stats */
+.diet-calculator-stats {
+    display: flex;
+    gap: 20px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.stat-box {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    min-width: 150px;
+    flex: 1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.stat-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stat-box h3 {
+    font-size: 2.5em;
+    margin: 0;
+    color: #0073aa;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.stat-box p {
+    margin: 8px 0 0;
+    color: #666;
+    font-size: 0.9em;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Settings Form */
+.diet-calculator-settings {
+    max-width: 800px;
+}
+
+.diet-calculator-settings .form-table th {
+    padding-left: 0;
+    width: 200px;
+}
+
+.diet-calculator-settings .form-table td {
+    padding-left: 20px;
+}
+
+.api-key-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.api-key-wrapper input[type="password"],
+.api-key-wrapper input[type="text"] {
+    padding-right: 80px;
+    min-width: 400px;
+}
+
+.api-key-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #0073aa;
+    cursor: pointer;
+    font-size: 12px;
+    text-decoration: underline;
+}
+
+.test-api-button {
+    margin-left: 10px;
+    background: #0073aa;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.test-api-button:hover {
+    background: #005a87;
+}
+
+.test-api-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* Plans Table */
+.plans-table-wrapper {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.wp-list-table .column-restrictions {
+    width: 200px;
+}
+
+.wp-list-table .column-calories {
+    width: 100px;
+    text-align: center;
+}
+
+.wp-list-table .column-created {
+    width: 140px;
+}
+
+.wp-list-table .column-actions {
+    width: 100px;
+    text-align: center;
+}
+
+.restriction-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.restriction-tag {
+    background: #f0f0f1;
+    color: #646970;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.restriction-tag.allergy {
+    background: #fcf2f2;
+    color: #d63638;
+}
+
+.restriction-tag.dietary {
+    background: #f0f6fc;
+    color: #0073aa;
+}
+
+/* Bulk Actions */
+.tablenav .actions .selected-count {
+    margin-left: 10px;
+    color: #646970;
+    font-style: italic;
+    font-size: 12px;
+}
+
+/* Shortcodes Display */
+.diet-calculator-shortcodes {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.diet-calculator-shortcodes h2 {
+    margin-top: 0;
+    color: #23282d;
+}
+
+.diet-calculator-shortcodes ul {
+    list-style: none;
+    padding: 0;
+}
+
+.diet-calculator-shortcodes li {
+    margin: 10px 0;
+    padding: 10px;
+    background: #f6f7f7;
+    border-radius: 4px;
+    border-left: 4px solid #0073aa;
+}
+
+.diet-calculator-shortcodes code {
+    background: #f1f1f1;
+    padding: 3px 6px;
+    border-radius: 3px;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 13px;
+    color: #d63638;
+    font-weight: bold;
+}
+
+/* Help Section */
+.help-section {
+    max-width: 800px;
+}
+
+.help-section h2 {
+    color: #23282d;
+    border-bottom: 1px solid #ccd0d4;
+    padding-bottom: 10px;
+}
+
+.help-section h3 {
+    color: #0073aa;
+    margin-top: 30px;
+}
+
+.help-section ol,
+.help-section ul {
+    line-height: 1.6;
+}
+
+.help-section li {
+    margin: 8px 0;
+}
+
+.help-section code {
+    background: #f1f1f1;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 13px;
+}
+
+/* Plan Preview Modal */
+.diet-calculator-modal {
+    display: none;
+    position: fixed;
+    z-index: 100000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    background: #0073aa;
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.2em;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.3s ease;
+}
+
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.modal-body {
+    padding: 20px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.modal-body .loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+/* Usage Chart */
+.chart-container {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.chart-container h3 {
+    margin-top: 0;
+    color: #23282d;
+}
+
+#usage-chart {
+    max-height: 300px;
+}
+
+/* Export Button */
+.export-button {
+    background: #00a32a;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    margin: 10px 0;
+}
+
+.export-button:hover {
+    background: #007a1a;
+    color: white;
+}
+
+.export-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* Responsive Design */
+@media screen and (max-width: 782px) {
+    .diet-calculator-stats {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .stat-box {
+        min-width: auto;
+    }
+    
+    .api-key-wrapper input[type="password"],
+    .api-key-wrapper input[type="text"] {
+        min-width: 100%;
+        padding-right: 40px;
+    }
+    
+    .api-key-toggle {
+        right: 5px;
+        font-size: 10px;
+    }
+    
+    .test-api-button {
+        margin-left: 0;
+        margin-top: 5px;
+        display: block;
+        width: 100%;
+        padding: 10px;
+    }
+    
+    .wp-list-table .column-restrictions {
+        width: auto;
+    }
+    
+    .restriction-tags {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 2% auto;
+        max-height: 90vh;
+    }
+    
+    .modal-body {
+        max-height: 70vh;
+    }
+}
+
+/* Loading States */
+.diet-calculator-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.diet-calculator-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #0073aa;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 5px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Status Indicators */
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.status-active {
+    background: #00a32a;
+}
+
+.status-inactive {
+    background: #ddd;
+}
+
+.status-error {
+    background: #d63638;
+}
+
+/* Tooltips */
+.diet-calculator-tooltip {
+    position: relative;
+    cursor: help;
+    border-bottom: 1px dotted #666;
+}
+
+.diet-calculator-tooltip:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #23282d;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-size: 12px;
+    z-index: 1000;
+}
+
+/* Error States */
+.diet-calculator-error {
+    background: #fcf2f2;
+    border: 1px solid #d63638;
+    border-radius: 4px;
+    padding: 10px 15px;
+    color: #d63638;
+    margin: 10px 0;
+}
+
+.diet-calculator-success {
+    background: #f0f9ff;
+    border: 1px solid #0073aa;
+    border-radius: 4px;
+    padding: 10px 15px;
+    color: #0073aa;
+    margin: 10px 0;
+}
+
+/* Admin Menu Icon */
+.toplevel_page_diet-calculator .wp-menu-image img {
+    width: 20px;
+    height: 20px;
+    opacity: 0.6;
+}
+
+.toplevel_page_diet-calculator:hover .wp-menu-image img,
+.toplevel_page_diet-calculator.wp-has-current-submenu .wp-menu-image img {
+    opacity: 1;
+}
+
+/* Print Styles */
+@media print {
+    .diet-calculator-stats,
+    .chart-container {
+        break-inside: avoid;
+    }
+    
+    .wp-list-table {
+        font-size: 12px;
+    }
+    
+    .modal-content,
+    .diet-calculator-modal {
+        position: static;
+        background: none;
+        box-shadow: none;
+        margin: 0;
+        width: 100%;
+        max-width: none;
+    }
+    
+    .modal-header {
+        background: none;
+        color: #000;
+        border-bottom: 1px solid #000;
+    }
+    
+    .modal-close {
+        display: none;
+    }
+}
