@@ -431,59 +431,79 @@ class DietCalculator_Admin {
      * Handle PDF download
      */
     public function download_pdf() {
+        // Enable error logging for debugging
+        error_log('Diet Calculator: PDF download request started');
+        
         // Clear any output buffers
         while (ob_get_level()) {
             ob_end_clean();
         }
 
         if (!isset($_GET['plan_id'])) {
+            error_log('Diet Calculator: No plan_id provided');
             wp_die(__('Plan ID is required.', 'diet-calculator'));
         }
 
         $plan_id = intval($_GET['plan_id']);
-        
-        // Debug: Log the plan_id being requested
         error_log('Diet Calculator: Requesting PDF for plan ID: ' . $plan_id);
         
-        $database = new DietCalculator_Database();
-        $plan_data = $database->get_meal_plan($plan_id);
-
-        if (!$plan_data) {
-            error_log('Diet Calculator: Plan not found for ID: ' . $plan_id);
-            wp_die(__('Plan not found.', 'diet-calculator'));
-        }
-
-        // Debug: Log plan data structure
-        error_log('Diet Calculator: Plan data keys: ' . implode(', ', array_keys($plan_data)));
-
-        try {
-            // Start output buffering to catch any unexpected output
-            ob_start();
-            
-            // Generate PDF
-            $pdf_generator = new DietCalculator_PDF_Generator();
-            $result = $pdf_generator->generate_pdf($plan_data, $plan_data['meal_plan']);
-            
-            // Clean any captured output
-            $captured_output = ob_get_clean();
-            if (!empty($captured_output)) {
-                error_log('Diet Calculator: Unexpected output captured: ' . $captured_output);
-            }
-            
-        } catch (Exception $e) {
-            // Clean any output buffer
-            ob_end_clean();
-            
-            // Log detailed error
-            error_log('Diet Calculator PDF Error: ' . $e->getMessage());
-            error_log('Diet Calculator PDF Error Stack: ' . $e->getTraceAsString());
-            
-            // Return error response
-            header('Content-Type: text/html');
-            wp_die(__('Error generating PDF: ', 'diet-calculator') . $e->getMessage());
+        // Check if classes exist
+        if (!class_exists('DietCalculator_Database')) {
+            error_log('Diet Calculator: DietCalculator_Database class not found');
+            wp_die(__('Database class not available.', 'diet-calculator'));
         }
         
-        // Ensure script ends here
-        wp_die();
+        if (!class_exists('DietCalculator_PDF_Generator')) {
+            error_log('Diet Calculator: DietCalculator_PDF_Generator class not found');
+            wp_die(__('PDF Generator class not available.', 'diet-calculator'));
+        }
+        
+        try {
+            $database = new DietCalculator_Database();
+            error_log('Diet Calculator: Database class instantiated');
+            
+            $plan_data = $database->get_meal_plan($plan_id);
+            
+            if (!$plan_data) {
+                error_log('Diet Calculator: Plan not found for ID: ' . $plan_id);
+                wp_die(__('Plan not found.', 'diet-calculator'));
+            }
+
+            error_log('Diet Calculator: Plan data retrieved. Keys: ' . implode(', ', array_keys($plan_data)));
+            
+            // Check meal plan data
+            if (isset($plan_data['meal_plan'])) {
+                if (is_string($plan_data['meal_plan'])) {
+                    error_log('Diet Calculator: Meal plan is JSON string, length: ' . strlen($plan_data['meal_plan']));
+                } elseif (is_array($plan_data['meal_plan'])) {
+                    error_log('Diet Calculator: Meal plan is array with keys: ' . implode(', ', array_keys($plan_data['meal_plan'])));
+                } else {
+                    error_log('Diet Calculator: Meal plan type: ' . gettype($plan_data['meal_plan']));
+                }
+            } else {
+                error_log('Diet Calculator: No meal_plan field in data');
+            }
+
+            error_log('Diet Calculator: Starting PDF generation');
+            
+            $pdf_generator = new DietCalculator_PDF_Generator();
+            error_log('Diet Calculator: PDF Generator instantiated');
+            
+            // Generate PDF (this should exit with download)
+            $pdf_generator->generate_pdf($plan_data, $plan_data['meal_plan']);
+            
+            // If we reach here, PDF generation didn't work properly
+            error_log('Diet Calculator: PDF generation completed but no exit occurred');
+            wp_die(__('PDF generation completed but download did not start.', 'diet-calculator'));
+            
+        } catch (Exception $e) {
+            error_log('Diet Calculator PDF Error: ' . $e->getMessage());
+            error_log('Diet Calculator PDF Error File: ' . $e->getFile());
+            error_log('Diet Calculator PDF Error Line: ' . $e->getLine());
+            error_log('Diet Calculator PDF Error Stack: ' . $e->getTraceAsString());
+            
+            // Return detailed error for debugging
+            wp_die(__('Error generating PDF: ', 'diet-calculator') . $e->getMessage() . '<br>Check error logs for details.');
+        }
     }
 }
