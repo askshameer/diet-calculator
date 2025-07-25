@@ -443,9 +443,15 @@ class DietCalculator_Admin {
             wp_die(__('Plan not found.', 'diet-calculator'));
         }
 
-        // Generate PDF
-        $pdf_generator = new DietCalculator_PDF_Generator();
-        $pdf_generator->generate_pdf($plan_data, $plan_data['meal_plan']);
+        try {
+            // Generate PDF
+            $pdf_generator = new DietCalculator_PDF_Generator();
+            $pdf_generator->generate_pdf($plan_data, $plan_data['meal_plan']);
+        } catch (Exception $e) {
+            // Log error and show user-friendly message
+            error_log('Diet Calculator PDF Error: ' . $e->getMessage());
+            wp_die(__('Error generating PDF. Please try again or contact support.', 'diet-calculator'));
+        }
         
         exit;
     }

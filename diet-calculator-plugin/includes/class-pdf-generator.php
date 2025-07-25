@@ -14,16 +14,22 @@ class DietCalculator_PDF_Generator {
      * Generate PDF report
      */
     public function generate_pdf($data, $meal_plan) {
-        // Include TCPDF library
-        if (!class_exists('TCPDF')) {
-            require_once(ABSPATH . 'wp-includes/class-tcpdf.php');
+        // Check if TCPDF is available, if not use alternative approach
+        if (!$this->load_tcpdf()) {
+            $this->generate_simple_pdf($data, $meal_plan);
+            return;
+        }
+
+        // Parse meal plan if it's JSON string
+        if (is_string($meal_plan)) {
+            $meal_plan = json_decode($meal_plan, true);
         }
 
         // Create new PDF document
-        $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
+        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
 
-        // Set document information
-        $pdf->SetCreator(PDF_CREATOR);
+        // Set document information with fallback constants  
+        $pdf->SetCreator(defined('PDF_CREATOR') ? PDF_CREATOR : 'Diet Calculator Plugin');
         $pdf->SetAuthor(get_bloginfo('name'));
         $pdf->SetTitle(__('Personalized Diet Plan', 'diet-calculator'));
         $pdf->SetSubject(__('AI-Generated Nutrition Plan', 'diet-calculator'));
@@ -31,23 +37,37 @@ class DietCalculator_PDF_Generator {
         // Set default header data
         $pdf->SetHeaderData('', 0, __('AI Diet Calculator', 'diet-calculator'), get_bloginfo('name'));
 
-        // Set header and footer fonts
-        $pdf->setHeaderFont(Array(PDF_FONT_NAME_MAIN, '', PDF_FONT_SIZE_MAIN));
-        $pdf->setFooterFont(Array(PDF_FONT_NAME_DATA, '', PDF_FONT_SIZE_DATA));
+        // Set header and footer fonts with fallbacks
+        $main_font = defined('PDF_FONT_NAME_MAIN') ? PDF_FONT_NAME_MAIN : 'helvetica';
+        $main_size = defined('PDF_FONT_SIZE_MAIN') ? PDF_FONT_SIZE_MAIN : 12;
+        $data_font = defined('PDF_FONT_NAME_DATA') ? PDF_FONT_NAME_DATA : 'helvetica';
+        $data_size = defined('PDF_FONT_SIZE_DATA') ? PDF_FONT_SIZE_DATA : 10;
+        
+        $pdf->setHeaderFont(array($main_font, '', $main_size));
+        $pdf->setFooterFont(array($data_font, '', $data_size));
 
         // Set default monospaced font
-        $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
+        $mono_font = defined('PDF_FONT_MONOSPACED') ? PDF_FONT_MONOSPACED : 'courier';
+        $pdf->SetDefaultMonospacedFont($mono_font);
 
-        // Set margins
-        $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-        $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
-        $pdf->SetFooterMargin(PDF_MARGIN_FOOTER);
+        // Set margins with fallbacks
+        $margin_left = defined('PDF_MARGIN_LEFT') ? PDF_MARGIN_LEFT : 15;
+        $margin_top = defined('PDF_MARGIN_TOP') ? PDF_MARGIN_TOP : 27;
+        $margin_right = defined('PDF_MARGIN_RIGHT') ? PDF_MARGIN_RIGHT : 15;
+        $margin_header = defined('PDF_MARGIN_HEADER') ? PDF_MARGIN_HEADER : 5;
+        $margin_footer = defined('PDF_MARGIN_FOOTER') ? PDF_MARGIN_FOOTER : 10;
+        $margin_bottom = defined('PDF_MARGIN_BOTTOM') ? PDF_MARGIN_BOTTOM : 25;
+        
+        $pdf->SetMargins($margin_left, $margin_top, $margin_right);
+        $pdf->SetHeaderMargin($margin_header);
+        $pdf->SetFooterMargin($margin_footer);
 
         // Set auto page breaks
-        $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
+        $pdf->SetAutoPageBreak(TRUE, $margin_bottom);
 
         // Set image scale factor
-        $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
+        $image_scale = defined('PDF_IMAGE_SCALE_RATIO') ? PDF_IMAGE_SCALE_RATIO : 1.25;
+        $pdf->setImageScale($image_scale);
 
         // Add a page
         $pdf->AddPage();
@@ -215,6 +235,164 @@ class DietCalculator_PDF_Generator {
 
         return $html;
     }
+
+    /**
+     * Load TCPDF library
+     */
+    private function load_tcpdf() {
+        // First check if TCPDF is already loaded
+        if (class_exists('TCPDF')) {
+            return true;
+        }
+
+        // Try to load TCPDF from various locations
+        $tcpdf_paths = array(
+            ABSPATH . 'wp-includes/tcpdf/tcpdf.php',
+            ABSPATH . 'wp-content/plugins/tcpdf/tcpdf.php',
+            dirname(__FILE__) . '/tcpdf/tcpdf.php',
+            DIET_CALCULATOR_PLUGIN_PATH . 'includes/tcpdf/tcpdf.php'
+        );
+
+        foreach ($tcpdf_paths as $path) {
+            if (file_exists($path)) {
+                try {
+                    require_once($path);
+                    if (class_exists('TCPDF')) {
+                        return true;
+                    }
+                } catch (Exception $e) {
+                    // Continue to next path
+                    continue;
+                }
+            }
+        }
+
+        // Try to use WordPress's built-in mPDF if available (some themes/plugins include it)
+        if (class_exists('mPDF') || class_exists('Mpdf\\Mpdf')) {
+            return $this->use_mpdf_alternative();
+        }
+
+        return false;
+    }
+
+    /**
+     * Use mPDF as alternative to TCPDF
+     */
+    private function use_mpdf_alternative() {
+        // This would be implemented if mPDF is available
+        // For now, return false to use fallback
+        return false;
+    }
+
+    /**
+     * Generate simple HTML PDF as fallback
+     */
+    private function generate_simple_pdf($data, $meal_plan) {
+        // Parse meal plan if it's JSON string
+        if (is_string($meal_plan)) {
+            $meal_plan = json_decode($meal_plan, true);
+        }
+
+        // Set headers for PDF download
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="diet-plan-' . date('Y-m-d') . '.pdf"');
+        header('Cache-Control: private, max-age=0, must-revalidate');
+        header('Pragma: public');
+
+        // Generate HTML content
+        $html = $this->generate_pdf_content($data, $meal_plan);
+        
+        // Use wkhtmltopdf if available, otherwise use FPDF
+        if ($this->use_wkhtmltopdf($html)) {
+            return;
+        }
+
+        // Fallback to simple PDF
+        $this->generate_fpdf($data, $meal_plan);
+    }
+
+    /**
+     * Try to use wkhtmltopdf for PDF generation
+     */
+    private function use_wkhtmltopdf($html) {
+        // Check if wkhtmltopdf is available
+        $wkhtmltopdf = exec('which wkhtmltopdf');
+        if (empty($wkhtmltopdf)) {
+            return false;
+        }
+
+        // Create temporary HTML file
+        $temp_html = tempnam(sys_get_temp_dir(), 'diet_calc_') . '.html';
+        $temp_pdf = tempnam(sys_get_temp_dir(), 'diet_calc_') . '.pdf';
+
+        // Add CSS styling for print
+        $styled_html = '
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.4; }
+                .header { background-color: #4f46e5; color: white; padding: 10px; text-align: center; }
+                .section { margin: 15px 0; }
+                .section-title { background-color: #f3f4f6; padding: 8px; font-weight: bold; }
+                table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+                td { border: 1px solid #ddd; padding: 6px; }
+                .label { background-color: #f9fafb; font-weight: bold; }
+                ul { margin: 10px 0; padding-left: 20px; }
+            </style>
+        </head>
+        <body>' . $html . '</body>
+        </html>';
+
+        file_put_contents($temp_html, $styled_html);
+
+        // Generate PDF
+        $command = escapeshellcmd($wkhtmltopdf) . ' --page-size A4 --margin-top 0.75in --margin-right 0.75in --margin-bottom 0.75in --margin-left 0.75in ' . escapeshellarg($temp_html) . ' ' . escapeshellarg($temp_pdf);
+        exec($command, $output, $return_var);
+
+        if ($return_var === 0 && file_exists($temp_pdf)) {
+            // Output PDF
+            readfile($temp_pdf);
+            
+            // Clean up
+            unlink($temp_html);
+            unlink($temp_pdf);
+            
+            return true;
+        }
+
+        // Clean up on failure
+        if (file_exists($temp_html)) unlink($temp_html);
+        if (file_exists($temp_pdf)) unlink($temp_pdf);
+        
+        return false;
+    }
+
+    /**
+     * Generate PDF using simple PDF library as final fallback
+     */
+    private function generate_fpdf($data, $meal_plan) {
+        // Load our simple PDF class
+        require_once(dirname(__FILE__) . '/lib/simple-pdf.php');
+        
+        $pdf = new SimplePDF();
+        $pdf->SetTitle(__('Personalized Diet Plan', 'diet-calculator'));
+        $pdf->SetAuthor(get_bloginfo('name'));
+        
+        // Generate HTML content
+        $html = $this->generate_pdf_content($data, $meal_plan);
+        
+        // Add to PDF
+        $pdf->writeHTML($html);
+        
+        // Output PDF
+        $filename = 'diet-plan-' . date('Y-m-d') . '.pdf';
+        $pdf->Output($filename, 'D');
+        
+        return;
+    }
+    
 
     /**
      * Clean text for PDF output
