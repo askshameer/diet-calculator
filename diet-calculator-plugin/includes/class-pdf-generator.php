@@ -1,6 +1,7 @@
 <?php
 /**
  * PDF Generator for Diet Calculator Plugin
+ * Rewritten to use FPDF for reliable WordPress compatibility
  */
 
 // Prevent direct access
@@ -14,412 +15,320 @@ class DietCalculator_PDF_Generator {
      * Generate PDF report
      */
     public function generate_pdf($data, $meal_plan) {
-        // Check if TCPDF is available, if not use alternative approach
-        if (!$this->load_tcpdf()) {
-            $this->generate_simple_pdf($data, $meal_plan);
-            return;
+        try {
+            // Parse meal plan if it's JSON string
+            if (is_string($meal_plan)) {
+                $meal_plan = json_decode($meal_plan, true);
+            }
+
+            // Load FPDF library
+            require_once(dirname(__FILE__) . '/lib/fpdf.php');
+
+            // Create PDF instance
+            $pdf = new FPDF();
+            $pdf->SetTitle(__('Personalized Diet Plan', 'diet-calculator'));
+            $pdf->SetAuthor(get_bloginfo('name'));
+            $pdf->SetSubject(__('AI-Generated Nutrition Plan', 'diet-calculator'));
+
+            // Add first page
+            $pdf->AddPage();
+
+            // Generate PDF content
+            $this->generate_pdf_content($pdf, $data, $meal_plan);
+
+            // Clear any output buffers
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            // Generate filename
+            $filename = 'diet-plan-' . date('Y-m-d') . '.pdf';
+
+            // Output PDF for download
+            $pdf->Output($filename, 'D');
+            exit;
+
+        } catch (Exception $e) {
+            error_log('Diet Calculator PDF Error: ' . $e->getMessage());
+            
+            // Fallback to text file
+            $this->generate_text_fallback($data, $meal_plan);
+            exit;
         }
-
-        // Parse meal plan if it's JSON string
-        if (is_string($meal_plan)) {
-            $meal_plan = json_decode($meal_plan, true);
-        }
-
-        // Create new PDF document
-        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
-
-        // Set document information with fallback constants  
-        $pdf->SetCreator(defined('PDF_CREATOR') ? PDF_CREATOR : 'Diet Calculator Plugin');
-        $pdf->SetAuthor(get_bloginfo('name'));
-        $pdf->SetTitle(__('Personalized Diet Plan', 'diet-calculator'));
-        $pdf->SetSubject(__('AI-Generated Nutrition Plan', 'diet-calculator'));
-
-        // Set default header data
-        $pdf->SetHeaderData('', 0, __('AI Diet Calculator', 'diet-calculator'), get_bloginfo('name'));
-
-        // Set header and footer fonts with fallbacks
-        $main_font = defined('PDF_FONT_NAME_MAIN') ? PDF_FONT_NAME_MAIN : 'helvetica';
-        $main_size = defined('PDF_FONT_SIZE_MAIN') ? PDF_FONT_SIZE_MAIN : 12;
-        $data_font = defined('PDF_FONT_NAME_DATA') ? PDF_FONT_NAME_DATA : 'helvetica';
-        $data_size = defined('PDF_FONT_SIZE_DATA') ? PDF_FONT_SIZE_DATA : 10;
-        
-        $pdf->setHeaderFont(array($main_font, '', $main_size));
-        $pdf->setFooterFont(array($data_font, '', $data_size));
-
-        // Set default monospaced font
-        $mono_font = defined('PDF_FONT_MONOSPACED') ? PDF_FONT_MONOSPACED : 'courier';
-        $pdf->SetDefaultMonospacedFont($mono_font);
-
-        // Set margins with fallbacks
-        $margin_left = defined('PDF_MARGIN_LEFT') ? PDF_MARGIN_LEFT : 15;
-        $margin_top = defined('PDF_MARGIN_TOP') ? PDF_MARGIN_TOP : 27;
-        $margin_right = defined('PDF_MARGIN_RIGHT') ? PDF_MARGIN_RIGHT : 15;
-        $margin_header = defined('PDF_MARGIN_HEADER') ? PDF_MARGIN_HEADER : 5;
-        $margin_footer = defined('PDF_MARGIN_FOOTER') ? PDF_MARGIN_FOOTER : 10;
-        $margin_bottom = defined('PDF_MARGIN_BOTTOM') ? PDF_MARGIN_BOTTOM : 25;
-        
-        $pdf->SetMargins($margin_left, $margin_top, $margin_right);
-        $pdf->SetHeaderMargin($margin_header);
-        $pdf->SetFooterMargin($margin_footer);
-
-        // Set auto page breaks
-        $pdf->SetAutoPageBreak(TRUE, $margin_bottom);
-
-        // Set image scale factor
-        $image_scale = defined('PDF_IMAGE_SCALE_RATIO') ? PDF_IMAGE_SCALE_RATIO : 1.25;
-        $pdf->setImageScale($image_scale);
-
-        // Add a page
-        $pdf->AddPage();
-
-        // Set font
-        $pdf->SetFont('helvetica', '', 12);
-
-        // Generate PDF content
-        $html = $this->generate_pdf_content($data, $meal_plan);
-        
-        // Print content
-        $pdf->writeHTML($html, true, false, true, false, '');
-
-        // Generate filename
-        $filename = 'diet-plan-' . date('Y-m-d') . '.pdf';
-
-        // Output PDF and exit
-        $pdf->Output($filename, 'D');
-        exit;
     }
 
     /**
-     * Generate PDF HTML content
+     * Generate PDF content using FPDF
      */
-    private function generate_pdf_content($data, $meal_plan) {
-        $bmi = round($data['weight'] / pow($data['height'] / 100, 2), 1);
-        
-        $html = '<style>
-            .header { background-color: #4f46e5; color: white; padding: 10px; text-align: center; font-size: 20px; font-weight: bold; }
-            .section { margin: 20px 0; }
-            .section-title { background-color: #f3f4f6; padding: 8px; font-size: 16px; font-weight: bold; color: #374151; }
-            .info-grid { width: 100%; border-collapse: collapse; margin: 10px 0; }
-            .info-grid td { border: 1px solid #d1d5db; padding: 8px; }
-            .info-grid .label { background-color: #f9fafb; font-weight: bold; width: 40%; }
-            .food-category { margin: 15px 0; }
-            .prioritize { color: #059669; }
-            .neutral { color: #0369a1; }
-            .minimize { color: #dc2626; }
-            .meal-item { background-color: #f8fafc; padding: 10px; margin: 5px 0; border-left: 4px solid #4f46e5; }
-        </style>';
-
-        $html .= '<div class="header">' . __('Your Personalized Diet Plan', 'diet-calculator') . '</div>';
+    private function generate_pdf_content($pdf, $data, $meal_plan) {
+        // Header
+        $pdf->SetFont('Arial', 'B', 20);
+        $pdf->SetTextColor(79, 70, 229); // Purple color
+        $pdf->Cell(0, 15, __('Your Personalized Diet Plan', 'diet-calculator'), 0, 1, 'C');
+        $pdf->Ln(10);
 
         // Personal Information Section
-        $html .= '<div class="section">';
-        $html .= '<div class="section-title">' . __('Personal Information', 'diet-calculator') . '</div>';
-        $html .= '<table class="info-grid">';
-        $html .= '<tr><td class="label">' . __('Height', 'diet-calculator') . '</td><td>' . $data['height'] . 'cm</td></tr>';
-        $html .= '<tr><td class="label">' . __('Weight', 'diet-calculator') . '</td><td>' . $data['weight'] . 'kg</td></tr>';
-        $html .= '<tr><td class="label">' . __('Age', 'diet-calculator') . '</td><td>' . $data['age'] . ' ' . __('years', 'diet-calculator') . '</td></tr>';
-        $html .= '<tr><td class="label">' . __('Sex', 'diet-calculator') . '</td><td>' . ucfirst($data['sex']) . '</td></tr>';
-        $html .= '<tr><td class="label">' . __('BMI', 'diet-calculator') . '</td><td>' . $bmi . '</td></tr>';
-        $html .= '<tr><td class="label">' . __('Goal', 'diet-calculator') . '</td><td>' . ucwords(str_replace('_', ' ', $data['goal'])) . '</td></tr>';
-        $html .= '</table>';
-        $html .= '</div>';
+        $this->add_section_header($pdf, __('Personal Information', 'diet-calculator'));
+        
+        $pdf->SetFont('Arial', '', 11);
+        $bmi = round($data['weight'] / pow($data['height'] / 100, 2), 1);
+        
+        $this->add_info_row($pdf, __('Height', 'diet-calculator'), $data['height'] . 'cm');
+        $this->add_info_row($pdf, __('Weight', 'diet-calculator'), $data['weight'] . 'kg');
+        $this->add_info_row($pdf, __('Age', 'diet-calculator'), $data['age'] . ' ' . __('years', 'diet-calculator'));
+        $this->add_info_row($pdf, __('Sex', 'diet-calculator'), ucfirst($data['sex']));
+        $this->add_info_row($pdf, __('BMI', 'diet-calculator'), $bmi);
+        $this->add_info_row($pdf, __('Goal', 'diet-calculator'), ucwords(str_replace('_', ' ', $data['goal'])));
+        
+        $pdf->Ln(10);
 
         // Nutrition Targets Section
-        $html .= '<div class="section">';
-        $html .= '<div class="section-title">' . __('Daily Nutrition Targets', 'diet-calculator') . '</div>';
-        $html .= '<table class="info-grid">';
-        $html .= '<tr><td class="label">' . __('Calories', 'diet-calculator') . '</td><td>' . round($data['dailyCalories']) . ' kcal</td></tr>';
-        $html .= '<tr><td class="label">' . __('Protein', 'diet-calculator') . '</td><td>' . round($data['proteinGrams']) . 'g</td></tr>';
-        $html .= '<tr><td class="label">' . __('Carbohydrates', 'diet-calculator') . '</td><td>' . round($data['carbGrams']) . 'g</td></tr>';
-        $html .= '<tr><td class="label">' . __('Fat', 'diet-calculator') . '</td><td>' . round($data['fatGrams']) . 'g</td></tr>';
-        $html .= '<tr><td class="label">' . __('Water', 'diet-calculator') . '</td><td>' . round($data['waterIntake']) . 'ml</td></tr>';
-        $html .= '<tr><td class="label">' . __('BMR', 'diet-calculator') . '</td><td>' . round($data['bmr']) . ' kcal</td></tr>';
-        $html .= '<tr><td class="label">' . __('TDEE', 'diet-calculator') . '</td><td>' . round($data['tdee']) . ' kcal</td></tr>';
-        $html .= '</table>';
-        $html .= '</div>';
+        $this->add_section_header($pdf, __('Daily Nutrition Targets', 'diet-calculator'));
+        
+        $this->add_info_row($pdf, __('Calories', 'diet-calculator'), round($data['daily_calories']) . ' kcal');
+        $this->add_info_row($pdf, __('Protein', 'diet-calculator'), round($data['protein_grams']) . 'g');
+        $this->add_info_row($pdf, __('Carbohydrates', 'diet-calculator'), round($data['carb_grams']) . 'g');
+        $this->add_info_row($pdf, __('Fat', 'diet-calculator'), round($data['fat_grams']) . 'g');
+        $this->add_info_row($pdf, __('Water', 'diet-calculator'), round($data['water_intake']) . 'ml');
+        $this->add_info_row($pdf, __('BMR', 'diet-calculator'), round($data['bmr']) . ' kcal');
+        $this->add_info_row($pdf, __('TDEE', 'diet-calculator'), round($data['tdee']) . ' kcal');
+        
+        $pdf->Ln(10);
 
         // Food Categorization Section
         if (isset($meal_plan['foodCategorization'])) {
-            $html .= '<div class="section">';
-            $html .= '<div class="section-title">' . __('Food Categorization Guide', 'diet-calculator') . '</div>';
+            $this->add_section_header($pdf, __('Food Categorization Guide', 'diet-calculator'));
             
             foreach (['prioritize', 'neutral', 'minimize'] as $category) {
                 if (isset($meal_plan['foodCategorization'][$category])) {
                     $cat_data = $meal_plan['foodCategorization'][$category];
-                    $class = $category;
                     
-                    $html .= '<div class="food-category">';
-                    $html .= '<h3 class="' . $class . '">' . $cat_data['title'] . '</h3>';
-                    $html .= '<p>' . $cat_data['description'] . '</p>';
+                    // Category title with color coding
+                    $pdf->SetFont('Arial', 'B', 12);
+                    switch($category) {
+                        case 'prioritize':
+                            $pdf->SetTextColor(5, 150, 105); // Green
+                            break;
+                        case 'neutral':
+                            $pdf->SetTextColor(3, 105, 161); // Blue
+                            break;
+                        case 'minimize':
+                            $pdf->SetTextColor(220, 38, 38); // Red
+                            break;
+                    }
                     
+                    $pdf->Cell(0, 8, $cat_data['title'], 0, 1);
+                    
+                    // Reset color
+                    $pdf->SetTextColor(0, 0, 0);
+                    $pdf->SetFont('Arial', '', 10);
+                    
+                    // Description
+                    $pdf->MultiCell(0, 5, $cat_data['description'], 0, 'L');
+                    $pdf->Ln(2);
+                    
+                    // Foods list
                     if (!empty($cat_data['foods'])) {
-                        $html .= '<ul>';
                         foreach ($cat_data['foods'] as $food) {
-                            $html .= '<li>' . $this->clean_text($food) . '</li>';
+                            $pdf->Cell(10, 5, '•', 0, 0);
+                            $pdf->Cell(0, 5, $this->clean_text($food), 0, 1);
                         }
-                        $html .= '</ul>';
                     }
                     
-                    if (isset($cat_data['reasoning'])) {
-                        $html .= '<p><em>' . $cat_data['reasoning'] . '</em></p>';
-                    }
-                    $html .= '</div>';
+                    $pdf->Ln(5);
                 }
             }
-            $html .= '</div>';
         }
 
         // Sample Meals Section
         if (isset($meal_plan['weeklyPlan'][0]['meals'])) {
-            $html .= '<div class="section">';
-            $html .= '<div class="section-title">' . __('Sample Daily Meals', 'diet-calculator') . '</div>';
+            // Add new page if needed
+            if ($pdf->GetY() > 220) {
+                $pdf->AddPage();
+            }
+            
+            $this->add_section_header($pdf, __('Sample Daily Meals', 'diet-calculator'));
             
             foreach ($meal_plan['weeklyPlan'][0]['meals'] as $meal) {
-                $html .= '<div class="meal-item">';
-                $html .= '<h4>' . $meal['name'] . '</h4>';
-                $html .= '<p><strong>' . $this->clean_text($meal['food']) . '</strong></p>';
-                $html .= '<p>' . __('Calories:', 'diet-calculator') . ' ' . $meal['calories'] . ' | ';
-                $html .= __('Protein:', 'diet-calculator') . ' ' . $meal['protein'] . 'g | ';
-                $html .= __('Carbs:', 'diet-calculator') . ' ' . $meal['carbs'] . 'g | ';
-                $html .= __('Fat:', 'diet-calculator') . ' ' . $meal['fat'] . 'g</p>';
+                // Check if we need a new page
+                if ($pdf->GetY() > 250) {
+                    $pdf->AddPage();
+                }
                 
+                $pdf->SetFont('Arial', 'B', 11);
+                $pdf->Cell(0, 8, $meal['name'], 0, 1);
+                
+                $pdf->SetFont('Arial', '', 10);
+                $pdf->MultiCell(0, 5, $this->clean_text($meal['food']), 0, 'L');
+                
+                // Nutrition info
+                $nutrition = sprintf(
+                    __('Calories: %s | Protein: %sg | Carbs: %sg | Fat: %sg', 'diet-calculator'),
+                    $meal['calories'], $meal['protein'], $meal['carbs'], $meal['fat']
+                );
+                $pdf->Cell(0, 5, $nutrition, 0, 1);
+                
+                // Ingredients
                 if (!empty($meal['ingredients'])) {
-                    $html .= '<p><strong>' . __('Ingredients:', 'diet-calculator') . '</strong> ' . implode(', ', array_map(array($this, 'clean_text'), $meal['ingredients'])) . '</p>';
+                    $ingredients_text = __('Ingredients: ', 'diet-calculator') . implode(', ', array_map(array($this, 'clean_text'), $meal['ingredients']));
+                    $pdf->MultiCell(0, 5, $ingredients_text, 0, 'L');
                 }
                 
+                // Portions
                 if (!empty($meal['portions'])) {
-                    $html .= '<p><strong>' . __('Portions:', 'diet-calculator') . '</strong> ' . $this->clean_text($meal['portions']) . '</p>';
+                    $pdf->Cell(0, 5, __('Portions: ', 'diet-calculator') . $this->clean_text($meal['portions']), 0, 1);
                 }
-                $html .= '</div>';
+                
+                $pdf->Ln(5);
             }
-            $html .= '</div>';
         }
 
         // Shopping List Section
         if (isset($meal_plan['shoppingList']) && is_array($meal_plan['shoppingList'])) {
-            $html .= '<div class="section">';
-            $html .= '<div class="section-title">' . __('Smart Shopping List', 'diet-calculator') . '</div>';
+            // Add new page if needed
+            if ($pdf->GetY() > 200) {
+                $pdf->AddPage();
+            }
+            
+            $this->add_section_header($pdf, __('Smart Shopping List', 'diet-calculator'));
             
             foreach ($meal_plan['shoppingList'] as $category => $items) {
                 if (is_array($items) && isset($items['title']) && isset($items['items'])) {
-                    $html .= '<h4>' . $items['title'] . '</h4>';
+                    $pdf->SetFont('Arial', 'B', 11);
+                    $pdf->Cell(0, 8, $items['title'], 0, 1);
+                    
+                    $pdf->SetFont('Arial', '', 10);
                     if (!empty($items['items'])) {
-                        $html .= '<ul>';
                         foreach ($items['items'] as $item) {
-                            $html .= '<li>' . $this->clean_text($item) . '</li>';
+                            $pdf->Cell(10, 5, '•', 0, 0);
+                            $pdf->Cell(0, 5, $this->clean_text($item), 0, 1);
                         }
-                        $html .= '</ul>';
                     }
                 } elseif (is_array($items)) {
-                    $html .= '<h4>' . ucwords(str_replace('_', ' ', $category)) . '</h4>';
-                    $html .= '<ul>';
+                    $pdf->SetFont('Arial', 'B', 11);
+                    $pdf->Cell(0, 8, ucwords(str_replace('_', ' ', $category)), 0, 1);
+                    
+                    $pdf->SetFont('Arial', '', 10);
                     foreach ($items as $item) {
-                        $html .= '<li>' . $this->clean_text($item) . '</li>';
+                        $pdf->Cell(10, 5, '•', 0, 0);
+                        $pdf->Cell(0, 5, $this->clean_text($item), 0, 1);
                     }
-                    $html .= '</ul>';
                 }
+                $pdf->Ln(3);
             }
-            $html .= '</div>';
         }
 
         // Disclaimers
-        $html .= '<div class="section">';
-        $html .= '<div class="section-title">' . __('Important Disclaimers', 'diet-calculator') . '</div>';
-        $html .= '<p>' . __('This report is generated for informational purposes only. Please consult with a healthcare professional before making significant dietary changes.', 'diet-calculator') . '</p>';
-        $html .= '<p>' . __('Individual results may vary. This plan is based on general nutritional guidelines and your provided information.', 'diet-calculator') . '</p>';
-        $html .= '</div>';
-
+        if ($pdf->GetY() > 240) {
+            $pdf->AddPage();
+        }
+        
+        $this->add_section_header($pdf, __('Important Disclaimers', 'diet-calculator'));
+        
+        $pdf->SetFont('Arial', '', 10);
+        $pdf->MultiCell(0, 5, __('This report is generated for informational purposes only. Please consult with a healthcare professional before making significant dietary changes.', 'diet-calculator'), 0, 'L');
+        $pdf->Ln(3);
+        $pdf->MultiCell(0, 5, __('Individual results may vary. This plan is based on general nutritional guidelines and your provided information.', 'diet-calculator'), 0, 'L');
+        
         // Footer
-        $html .= '<div style="margin-top: 30px; text-align: center; font-size: 10px; color: #6b7280;">';
-        $html .= __('Generated by AI Diet Calculator Plugin', 'diet-calculator') . ' | ' . date('Y-m-d H:i:s');
-        $html .= '</div>';
-
-        return $html;
+        $pdf->Ln(10);
+        $pdf->SetFont('Arial', 'I', 8);
+        $pdf->SetTextColor(107, 114, 128);
+        $pdf->Cell(0, 5, __('Generated by AI Diet Calculator Plugin', 'diet-calculator') . ' | ' . date('Y-m-d H:i:s'), 0, 1, 'C');
     }
 
     /**
-     * Load TCPDF library
+     * Add section header
      */
-    private function load_tcpdf() {
-        // First check if TCPDF is already loaded
-        if (class_exists('TCPDF')) {
-            return true;
-        }
+    private function add_section_header($pdf, $title) {
+        $pdf->SetFont('Arial', 'B', 14);
+        $pdf->SetTextColor(79, 70, 229);
+        $pdf->SetFillColor(243, 244, 246);
+        $pdf->Cell(0, 10, $title, 0, 1, 'L', true);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->Ln(5);
+    }
 
-        // Try to load TCPDF from various locations
-        $tcpdf_paths = array(
-            ABSPATH . 'wp-includes/tcpdf/tcpdf.php',
-            ABSPATH . 'wp-content/plugins/tcpdf/tcpdf.php',
-            dirname(__FILE__) . '/tcpdf/tcpdf.php',
-            DIET_CALCULATOR_PLUGIN_PATH . 'includes/tcpdf/tcpdf.php'
-        );
+    /**
+     * Add information row
+     */
+    private function add_info_row($pdf, $label, $value) {
+        $pdf->SetFont('Arial', 'B', 10);
+        $pdf->Cell(50, 6, $label . ':', 0, 0);
+        $pdf->SetFont('Arial', '', 10);
+        $pdf->Cell(0, 6, $value, 0, 1);
+    }
 
-        foreach ($tcpdf_paths as $path) {
-            if (file_exists($path)) {
-                try {
-                    require_once($path);
-                    if (class_exists('TCPDF')) {
-                        return true;
+    /**
+     * Generate text fallback when PDF fails
+     */
+    private function generate_text_fallback($data, $meal_plan) {
+        $content = "============================================\n";
+        $content .= "    PERSONALIZED DIET PLAN\n";
+        $content .= "    Generated by: " . get_bloginfo('name') . "\n";
+        $content .= "    Date: " . date('Y-m-d H:i:s') . "\n";
+        $content .= "============================================\n\n";
+        
+        $content .= "PERSONAL INFORMATION\n";
+        $content .= "Height: " . $data['height'] . "cm\n";
+        $content .= "Weight: " . $data['weight'] . "kg\n";
+        $content .= "Age: " . $data['age'] . " years\n";
+        $content .= "Sex: " . ucfirst($data['sex']) . "\n";
+        $content .= "Goal: " . ucwords(str_replace('_', ' ', $data['goal'])) . "\n\n";
+        
+        $content .= "NUTRITION TARGETS\n";
+        $content .= "Daily Calories: " . round($data['daily_calories']) . " kcal\n";
+        $content .= "Protein: " . round($data['protein_grams']) . "g\n";
+        $content .= "Carbohydrates: " . round($data['carb_grams']) . "g\n";
+        $content .= "Fat: " . round($data['fat_grams']) . "g\n";
+        $content .= "Water: " . round($data['water_intake']) . "ml\n\n";
+
+        if (isset($meal_plan['foodCategorization'])) {
+            $content .= "FOOD RECOMMENDATIONS\n\n";
+            
+            foreach (['prioritize', 'neutral', 'minimize'] as $category) {
+                if (isset($meal_plan['foodCategorization'][$category])) {
+                    $cat_data = $meal_plan['foodCategorization'][$category];
+                    $content .= strtoupper($cat_data['title']) . "\n";
+                    $content .= $cat_data['description'] . "\n";
+                    
+                    if (!empty($cat_data['foods'])) {
+                        foreach ($cat_data['foods'] as $food) {
+                            $content .= "- " . $this->clean_text($food) . "\n";
+                        }
                     }
-                } catch (Exception $e) {
-                    // Continue to next path
-                    continue;
+                    $content .= "\n";
                 }
             }
         }
 
-        // Try to use WordPress's built-in mPDF if available (some themes/plugins include it)
-        if (class_exists('mPDF') || class_exists('Mpdf\\Mpdf')) {
-            return $this->use_mpdf_alternative();
+        $content .= "\nDISCLAIMER\n";
+        $content .= "This report is for informational purposes only. Consult with a healthcare professional before making significant dietary changes.\n";
+
+        // Clear any output buffers
+        while (ob_get_level()) {
+            ob_end_clean();
         }
 
-        return false;
+        // Output as text file
+        if (!headers_sent()) {
+            header('Content-Type: text/plain; charset=utf-8');
+            header('Content-Disposition: attachment; filename="diet-plan-' . date('Y-m-d') . '.txt"');
+            header('Content-Length: ' . strlen($content));
+            header('Cache-Control: private, max-age=0, must-revalidate');
+            header('Pragma: public');
+        }
+        
+        echo $content;
     }
 
     /**
-     * Use mPDF as alternative to TCPDF
-     */
-    private function use_mpdf_alternative() {
-        // This would be implemented if mPDF is available
-        // For now, return false to use fallback
-        return false;
-    }
-
-    /**
-     * Generate simple HTML PDF as fallback
-     */
-    private function generate_simple_pdf($data, $meal_plan) {
-        // Parse meal plan if it's JSON string
-        if (is_string($meal_plan)) {
-            $meal_plan = json_decode($meal_plan, true);
-        }
-
-        // Log which fallback method we're using
-        error_log('Diet Calculator: Using fallback PDF generation methods');
-
-        // Generate HTML content
-        $html = $this->generate_pdf_content($data, $meal_plan);
-        
-        // Use wkhtmltopdf if available, otherwise use simple PDF
-        if ($this->use_wkhtmltopdf($html)) {
-            return;
-        }
-
-        // Fallback to simple PDF
-        $this->generate_fpdf($data, $meal_plan);
-    }
-
-    /**
-     * Try to use wkhtmltopdf for PDF generation
-     */
-    private function use_wkhtmltopdf($html) {
-        // Check if wkhtmltopdf is available
-        $wkhtmltopdf = exec('which wkhtmltopdf');
-        if (empty($wkhtmltopdf)) {
-            return false;
-        }
-
-        // Create temporary HTML file
-        $temp_html = tempnam(sys_get_temp_dir(), 'diet_calc_') . '.html';
-        $temp_pdf = tempnam(sys_get_temp_dir(), 'diet_calc_') . '.pdf';
-
-        // Add CSS styling for print
-        $styled_html = '
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.4; }
-                .header { background-color: #4f46e5; color: white; padding: 10px; text-align: center; }
-                .section { margin: 15px 0; }
-                .section-title { background-color: #f3f4f6; padding: 8px; font-weight: bold; }
-                table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-                td { border: 1px solid #ddd; padding: 6px; }
-                .label { background-color: #f9fafb; font-weight: bold; }
-                ul { margin: 10px 0; padding-left: 20px; }
-            </style>
-        </head>
-        <body>' . $html . '</body>
-        </html>';
-
-        file_put_contents($temp_html, $styled_html);
-
-        // Generate PDF
-        $command = escapeshellcmd($wkhtmltopdf) . ' --page-size A4 --margin-top 0.75in --margin-right 0.75in --margin-bottom 0.75in --margin-left 0.75in ' . escapeshellarg($temp_html) . ' ' . escapeshellarg($temp_pdf);
-        exec($command, $output, $return_var);
-
-        if ($return_var === 0 && file_exists($temp_pdf)) {
-            // Set proper headers for PDF download
-            if (!headers_sent()) {
-                header('Content-Type: application/pdf');
-                header('Content-Disposition: attachment; filename="diet-plan-' . date('Y-m-d') . '.pdf"');
-                header('Content-Length: ' . filesize($temp_pdf));
-                header('Cache-Control: private, max-age=0, must-revalidate');
-                header('Pragma: public');
-            }
-            
-            // Output PDF
-            readfile($temp_pdf);
-            
-            // Clean up
-            unlink($temp_html);
-            unlink($temp_pdf);
-            
-            exit; // Important: exit after successful PDF generation
-        }
-
-        // Clean up on failure
-        if (file_exists($temp_html)) unlink($temp_html);
-        if (file_exists($temp_pdf)) unlink($temp_pdf);
-        
-        return false;
-    }
-
-    /**
-     * Generate PDF using simple PDF library as final fallback
-     */
-    private function generate_fpdf($data, $meal_plan) {
-        // Load our simple PDF class
-        require_once(dirname(__FILE__) . '/lib/simple-pdf.php');
-        
-        $pdf = new SimplePDF();
-        $pdf->SetTitle(__('Personalized Diet Plan', 'diet-calculator'));
-        $pdf->SetAuthor(get_bloginfo('name'));
-        
-        // Generate HTML content
-        $html = $this->generate_pdf_content($data, $meal_plan);
-        
-        // Add to PDF
-        $pdf->writeHTML($html);
-        
-        // Output PDF
-        $filename = 'diet-plan-' . date('Y-m-d') . '.txt';
-        $pdf->Output($filename, 'D');
-        
-        // Exit is handled in SimplePDF class
-        exit;
-    }
-    
-
-    /**
-     * Clean text for PDF output
+     * Clean text for output
      */
     private function clean_text($text) {
         // Remove problematic characters and emojis
         $cleaned = preg_replace('/[^\x20-\x7E]/', '', $text);
         $cleaned = preg_replace('/\s+/', ' ', $cleaned);
         return trim($cleaned);
-    }
-
-    /**
-     * Generate and return PDF as base64 for AJAX
-     */
-    public function generate_pdf_base64($data, $meal_plan) {
-        ob_start();
-        $this->generate_pdf($data, $meal_plan);
-        $pdf_content = ob_get_clean();
-        
-        return base64_encode($pdf_content);
     }
 }
